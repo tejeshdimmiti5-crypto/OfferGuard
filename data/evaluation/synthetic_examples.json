@@ -1,0 +1,23 @@
+[
+{"id":"OG-001","input_type":"email","label":"legitimate","text":"We are pleased to offer you a Software Engineer Intern position at Infosys. Stipend Rs 25000 per month. Contact hr@infosys.com. No fee is charged.","signals":[]},
+{"id":"OG-002","input_type":"email","label":"legitimate","text":"Your interview with Microsoft is scheduled for Monday. Contact careers@microsoft.com. Please do not share OTP or bank details with anyone.","signals":[]},
+{"id":"OG-003","input_type":"email","label":"legitimate","text":"We would like to interview you for a Python internship. Reply here or email founder@gmail.com.","signals":["R08"]},
+{"id":"OG-004","input_type":"message","label":"legitimate","text":"TCS NQT registration is open on the official portal. No registration fee is required.","signals":[]},
+{"id":"OG-005","input_type":"email","label":"legitimate","text":"A joining bonus of Rs 50000 will be transferred to your salary account. Contact hr@wipro.com.","signals":[]},
+{"id":"OG-006","input_type":"email","label":"legitimate","text":"Please accept this offer within 7 days by replying to careers@accenture.com.","signals":[]},
+{"id":"OG-007","input_type":"email","label":"legitimate","text":"Upload Aadhaar and PAN in the HR portal. Contact people@cognizant.com.","signals":["R10"]},
+{"id":"OG-008","input_type":"email","label":"legitimate","text":"Interview tomorrow at 10 AM. Join via teams.microsoft.com and contact hr@wipro.com.","signals":[]},
+{"id":"OG-009","input_type":"email","label":"legitimate","text":"Graduate Engineer Trainee role at Cognizant with a CTC of 4.5 LPA. Email careers@cognizant.com.","signals":[]},
+{"id":"OG-010","input_type":"email","label":"legitimate","text":"Assessment link is on amazon.jobs. Reply to no-reply@amazon.jobs if the link fails.","signals":[]},
+{"id":"OG-011","input_type":"message","label":"suspicious","text":"Selected for Data Entry work from home. Earn Rs 60000 per month, no experience needed. Contact HR on Telegram today only.","signals":["R06","R07","R08"]},
+{"id":"OG-012","input_type":"email","label":"suspicious","text":"Offer letter from TCS. Please confirm at offers@tcs-careers-hr.com.","signals":["R03","R04"]},
+{"id":"OG-013","input_type":"email","label":"suspicious","text":"Send Aadhaar, PAN card and bank account number to hr.recruit2026@gmail.com.","signals":["R08","R10"]},
+{"id":"OG-014","input_type":"message","label":"suspicious","text":"Click https://bit.ly/abc123 to confirm your seat. Offer expires in 24 hours.","signals":["R07","R09"]},
+{"id":"OG-015","input_type":"message","label":"suspicious","text":"Amazon is hiring for product review job. WhatsApp. Daily payment Rs 4000.","signals":["R06","R08"]},
+{"id":"OG-016","input_type":"message","label":"suspicious","text":"We will share the joining details soon. Keep your phone reachable.","signals":[]},
+{"id":"OG-017","input_type":"email","label":"fraudulent","text":"To confirm your seat pay a refundable security deposit of Rs 5000 via UPI. Reply from accenture-hr@outlook.com.","signals":["R02","R04","R08"]},
+{"id":"OG-018","input_type":"message","label":"fraudulent","text":"Kindly pay Rs 1500 registration fee. Send your OTP for verification.","signals":["R02","R10"]},
+{"id":"OG-019","input_type":"message","label":"fraudulent","text":"Pay Rs 999 training fee through PhonePe to activate your internship. Last chance!","signals":["R02","R07"]},
+{"id":"OG-020","input_type":"message","label":"fraudulent","text":"Selection mil gaya hai. Registration fee Rs 2000 bhejna hoga UPI se.","signals":["R02"]},
+{"id":"OG-021","input_type":"message","label":"uncertain","text":"Hi, we have a great opportunity for you. Interested? Message me.","signals":[]}
+]
