@@ -35,6 +35,17 @@ class HealthResponse(BaseModel):
     document_intelligence: bool
     azure_openai: bool
 
+@app.get("/")
+def root():
+    return {
+        "name": "OfferGuard API",
+        "status": "ok",
+        "docs": "/docs",
+        "health": "/health",
+        "assessment": "/api/assess",
+        "file_assessment": "/api/assess-file",
+    }
+
 @app.get("/health", response_model=HealthResponse)
 def health():
     return HealthResponse(
