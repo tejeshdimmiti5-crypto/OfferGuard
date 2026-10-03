@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: offerguard-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: AZURE_DOCINTEL_ENDPOINT
+        sync: false
+      - key: AZURE_DOCINTEL_KEY
+        sync: false
+      - key: AZURE_DOCINTEL_API_VERSION
+        value: "2024-11-30"
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_DEPLOYMENT
+        sync: false
