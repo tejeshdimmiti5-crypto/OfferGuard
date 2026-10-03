@@ -10,13 +10,13 @@ The **Verified** state requires a user-supplied independent confirmation that th
 
 ## Outcomes
 
-- `VERIFIED` — low deterministic risk + user-supplied official-listing verification.
-- `UNCONFIRMED` — insufficient evidence to verify the offer.
-- `RISK_DETECTED` — deterministic evidence crossed the risk threshold.
+- \`VERIFIED\` — low deterministic risk + user-supplied official-listing verification.
+- \`UNCONFIRMED\` — insufficient evidence to verify the offer.
+- \`RISK_DETECTED\` — deterministic evidence crossed the risk threshold.
 
 ## Architecture
 
-```
+\`\`\`
 Flutter client
     |
     v
@@ -31,7 +31,7 @@ FastAPI backend
     +--> Azure AI Document Intelligence (optional OCR)
     |
     +--> Azure OpenAI (optional explanation only)
-```
+\`\`\`
 
 ## Deterministic signals
 
@@ -39,66 +39,66 @@ The engine covers recruitment fees, direct money requests, unusual sender domain
 
 ## Backend
 
-```bash
+\`\`\`bash
 python -m venv .venv
-# Windows: .venv\\Scripts\\activate
+# Windows: .venv\\\\Scripts\\\\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn backend.main:app --reload --port 8000
-```
+\`\`\`
 
-Health: `http://localhost:8000/health`
+Health: \`http://localhost:8000/health\`
 
-Text assessment: `POST /api/assess`
+Text assessment: \`POST /api/assess\`
 
-```json
+\`\`\`json
 {
   "text": "Pay Rs 999 registration fee through UPI.",
   "language": "en",
   "official_listing_verified": null,
   "explain": true
 }
-```
+\`\`\`
 
-File assessment: `POST /api/assess-file` as multipart form-data. Files are capped at 10 MB and their file signatures are checked before OCR.
+File assessment: \`POST /api/assess-file\` as multipart form-data. Files are capped at 10 MB and their file signatures are checked before OCR.
 
 ## Flutter frontend
 
-The frontend source is in `flutter_app/`. It uses current `http` 1.6.0 and `file_picker` 13.1.0 packages. citeturn301839search0turn301839search5
+The frontend source is in \`flutter_app/\`. The project uses \`http\` 1.6.0 and \`file_picker\` 13.1.0.
 
-Because Flutter's platform templates evolve with the installed SDK, generate the platform scaffolding once:
+Generate the platform scaffolding once with the Flutter SDK:
 
-```bash
+\`\`\`bash
 cd flutter_app
 flutter create --platforms=android,ios,web .
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://localhost:8000
-```
+\`\`\`
 
-For an Android emulator use `http://10.0.2.2:8000` as the API base URL.
+For an Android emulator use \`http://10.0.2.2:8000\` as the API base URL.
 
 ## Azure configuration
 
 ### Document Intelligence
 
-Set `AZURE_DOCINTEL_ENDPOINT` and `AZURE_DOCINTEL_KEY`. The backend uses the GA `2024-11-30` Document Intelligence REST API and `prebuilt-read`; Microsoft documents the analyze operation and polling through `Operation-Location`. citeturn572663search0turn572663search4
+Set \`AZURE_DOCINTEL_ENDPOINT\` and \`AZURE_DOCINTEL_KEY\`. The backend uses the GA \`2024-11-30\` Document Intelligence REST API and \`prebuilt-read\`, posting an analyze request and polling the returned \`Operation-Location\`.
 
 ### Azure OpenAI
 
-Set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_DEPLOYMENT`. The current Azure OpenAI v1 surface supports the standard OpenAI Python client with a base URL ending in `/openai/v1/`; dated API-version parameters are not required for v1 inference. citeturn855684search0turn855684search3
+Set \`AZURE_OPENAI_ENDPOINT\`, \`AZURE_OPENAI_API_KEY\`, and \`AZURE_OPENAI_DEPLOYMENT\`. The explanation layer uses the Azure OpenAI v1 endpoint through the standard OpenAI Python client and never receives authority over the deterministic outcome.
 
 ## Tests and evaluation
 
-```bash
+\`\`\`bash
 python -m unittest discover -s tests
 python backend/evaluate.py
-```
+\`\`\`
 
-The shipped evaluation set is synthetic and is not a real-world accuracy claim. The current synthetic harness reports 20 scored examples, 0 false positives, and 80% recall for the deterministic risk flagger.
+The shipped evaluation set is synthetic and is not a real-world accuracy claim. The current local synthetic harness reports 20 scored examples, 0 false positives, and 80% recall for the deterministic risk flagger.
 
 ## Security boundary
 
-Do not commit API keys, real recruitment records, identity documents, passwords, OTPs, or bank information. The backend avoids logging submitted content and never feeds raw untrusted text directly into the model as a source of decision authority.
+Do not commit API keys, real recruitment records, identity documents, passwords, OTPs, or bank information. The backend does not log submitted content and applies file type/signature checks, size limits, rate limiting, and deterministic decision boundaries.
 
 ## Disclaimer
 
