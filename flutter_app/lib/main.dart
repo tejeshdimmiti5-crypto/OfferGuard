@@ -91,13 +91,13 @@ class _AssessmentPageState extends State<AssessmentPage> {
         );
         request.fields['language'] = language;
         request.fields['explain'] = explain.toString();
-        if (officialListingVerified) {
-          request.fields['official_listing_verified'] = 'true';
-        }
+        request.fields['official_listing_verified'] = officialListingVerified.toString();
         request.files.add(
           http.MultipartFile.fromBytes('file', fileBytes!, filename: fileName),
         );
-        response = await http.Response.fromStream(await request.send());
+        response = await http.Response.fromStream(
+          await request.send().timeout(const Duration(seconds: 60)),
+        );
       } else {
         response = await http.post(
           Uri.parse(apiBaseUrl + '/api/assess'),
@@ -174,7 +174,7 @@ class _AssessmentPageState extends State<AssessmentPage> {
                             ),
                           ),
                           Text(
-                            'Explainable job-offer risk assessment',
+                            'Evidence-first job-offer risk assessment',
                             style: TextStyle(color: Color(0xFFAFC2D8)),
                           ),
                         ],
@@ -445,6 +445,15 @@ class ResultPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
+            if (result!['ai_explanation'] is Map<String, dynamic>) ...[
+              const Text(
+                'Evidence summary',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              _AiSummary(summary: result!['ai_explanation']),
+              const SizedBox(height: 14),
+            ],
             const Text(
               'Evidence',
               style: TextStyle(fontWeight: FontWeight.w700),
@@ -456,6 +465,23 @@ class ResultPanel extends StatelessWidget {
                 style: TextStyle(color: Color(0xFFAFC2D8)),
               ),
             for (final item in evidence) EvidenceTile(item: item),
+            if ((result!['why'] as List? ?? const []).isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Decision chain',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              for (final item in (result!['why'] as List? ?? const []))
+                Bullet(text: item.toString(), icon: Icons.chevron_right),
+            ],
+            if (result!['facts'] is Map<String, dynamic>) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Extracted facts',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              _FactsSummary(facts: result!['facts'] as Map<String, dynamic>),
+            ],
             const SizedBox(height: 14),
             const Text(
               'What could not be verified',
@@ -480,6 +506,84 @@ class ResultPanel extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AiSummary extends StatelessWidget {
+  const _AiSummary({required this.summary});
+  final Map<String, dynamic> summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = (summary['summary'] ?? '').toString();
+    final actions = (summary['actions'] as List? ?? const [])
+        .map((e) => e.toString())
+        .where((e) => e.trim().isNotEmpty)
+        .take(4)
+        .toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x0C67E8F9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x1967E8F9)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (text.isNotEmpty)
+            Text(text, style: const TextStyle(color: Color(0xFFD5E1ED), height: 1.4)),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            for (final item in actions)
+              Bullet(text: item, icon: Icons.arrow_forward_rounded),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FactsSummary extends StatelessWidget {
+  const _FactsSummary({required this.facts});
+  final Map<String, dynamic> facts;
+
+  @override
+  Widget build(BuildContext context) {
+    final emails = (facts['emails'] as List? ?? const []).map((e) => e.toString()).toList();
+    final domains = (facts['link_domains'] as List? ?? const []).map((e) => e.toString()).toList();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081522),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (emails.isNotEmpty) ...[
+            const Text('Emails', style: TextStyle(color: Color(0xFF7F95AC), fontSize: 11)),
+            const SizedBox(height: 4),
+            Text(emails.join(', '), style: const TextStyle(color: Color(0xFFD5E1ED))),
+          ],
+          if (domains.isNotEmpty) ...[
+            if (emails.isNotEmpty) const SizedBox(height: 8),
+            const Text('Link domains', style: TextStyle(color: Color(0xFF7F95AC), fontSize: 11)),
+            const SizedBox(height: 4),
+            Text(domains.join(', '), style: const TextStyle(color: Color(0xFFD5E1ED))),
+          ],
+          if (emails.isEmpty && domains.isEmpty)
+            const Text(
+              'No email or link entities were extracted.',
+              style: TextStyle(color: Color(0xFFAFC2D8)),
+            ),
+        ],
       ),
     );
   }
