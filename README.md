@@ -1,105 +1,615 @@
 # OfferGuard
 
-OfferGuard is an explainable job-offer risk assessment system. It accepts recruiter text and PDF/PNG/JPEG documents, uses Azure AI Document Intelligence for OCR when configured, applies deterministic evidence rules, and can use Azure OpenAI only to explain evidence in English or Telugu.
+> **Evidence-first job-offer risk assessment with a strict AI decision boundary.**
 
-## Decision boundary
+OfferGuard helps candidates examine recruitment messages and offer documents for concrete warning signals before they pay money, click suspicious links, or share sensitive information.
 
-**AI never decides the outcome.** The deterministic rules engine owns the outcome. Every detected signal contains an exact quote from the supplied content. The absence of warning signs is never treated as proof that an offer is genuine.
+It combines a **deterministic risk engine** with **Azure AI Document Intelligence** for document extraction and **Azure OpenAI** for optional multilingual explanation. The model can explain evidence, but **it never decides the final outcome**.
 
-The **Verified** state requires a user-supplied independent confirmation that the exact role was found on the employer's official careers site, and only appears when deterministic risk is low. OfferGuard does not perform or claim that external lookup.
+<p align="center">
+  <strong>Evidence first · Uncertainty visible · AI never decides</strong>
+</p>
+
+---
+
+## Why OfferGuard?
+
+Recruitment scams often rely on urgency, payment requests, impersonation, suspicious domains, unrealistic compensation, and requests for sensitive information.
+
+A useful verification tool should not simply return a black-box "scam / not scam" label. It should show:
+
+- **what was detected**
+- **the exact source text that triggered it**
+- **how the deterministic score was formed**
+- **what could not be independently verified**
+- **what the candidate should do next**
+
+That is the core design of OfferGuard.
+
+---
+
+## Core principle
+
+### AI explains. Rules decide.
+
+~~~
+Input
+  │
+  ├── Recruiter text
+  └── PDF / PNG / JPEG
+          │
+          ▼
+Azure AI Document Intelligence
+          │
+          ▼
+Text normalization + entity extraction
+          │
+          ▼
+Deterministic R01–R12 signal engine
+          │
+          ├── exact quote
+          ├── signal
+          ├── weight
+          └── severity
+          │
+          ▼
+Deterministic risk + outcome
+          │
+          ├── VERIFIED
+          ├── UNCONFIRMED
+          └── RISK_DETECTED
+          │
+          └──────────────► Optional Azure OpenAI explanation
+                           (cannot change the outcome)
+~~~
+
+The system never treats the absence of warning signs as proof that an offer is genuine.
+
+---
 
 ## Outcomes
 
-- \`VERIFIED\` — low deterministic risk + user-supplied official-listing verification.
-- \`UNCONFIRMED\` — insufficient evidence to verify the offer.
-- \`RISK_DETECTED\` — deterministic evidence crossed the risk threshold.
+| Outcome | Meaning |
+|---|---|
+| **VERIFIED** | Deterministic risk is low **and** the user supplied an independent confirmation that the exact role exists on the employer's official careers site. |
+| **UNCONFIRMED** | There is not enough evidence to establish authenticity. |
+| **RISK_DETECTED** | Deterministic evidence crossed the configured risk threshold. |
+
+### Important verification boundary
+
+OfferGuard does **not** pretend that it has checked an employer's external careers site.
+
+The **Verified** state depends on a user-supplied confirmation:
+
+> "I independently verified the exact role on the official careers site."
+
+That check remains outside the AI decision boundary.
+
+---
+
+## Features
+
+### Deterministic evidence engine
+- 12 documented signals (R01–R12)
+- weighted scoring
+- severity levels
+- exact source quotes
+- deterministic outcome selection
+- explicit uncertainty
+- safe next-step recommendations
+
+### Document analysis
+Accepts:
+- recruiter messages / email text
+- PDF
+- PNG
+- JPEG
+
+For documents, OfferGuard can use **Azure AI Document Intelligence** to extract readable text before running the deterministic engine.
+
+### Multilingual explanation
+Azure OpenAI can optionally produce:
+- an evidence summary
+- concise actions
+- English or Telugu explanation
+
+The explanation layer receives the existing assessment and **does not receive authority to change it**.
+
+### Defensive handling
+The API includes:
+- 8,000-character text limit
+- 10 MB file limit
+- file signature validation
+- allowed MIME-type checks
+- per-client rate limiting
+- controlled error responses
+- CORS configuration
+- no raw submitted-content logging in the application layer
+
+### Explainable results
+Each detected signal can expose:
+- signal ID
+- signal name
+- claim
+- exact quote
+- weight
+- severity
+
+This makes the output auditable rather than opaque.
+
+---
+
+## Signal coverage
+
+| ID | Signal |
+|---|---|
+| R01 | Direct request to send money |
+| R02 | Recruitment fee or deposit |
+| R03 | Unusual sender domain |
+| R04 | Company-name / contact-domain mismatch |
+| R05 | Official listing not automatically verified |
+| R06 | Unusually high pay for the described role |
+| R07 | Urgency or pressure |
+| R08 | Personal email or chat-app recruiting |
+| R09 | Suspicious or shortened link |
+| R10 | Sensitive documents or credentials requested |
+| R11 | Different company domains in one message |
+| R12 | Offer-letter formatting/content issue |
+
+R05 and R12 are intentionally informational in the current release and do not create a false claim of automatic external verification or visual authenticity analysis.
+
+---
+
+## Example
+
+### Input
+
+~~~
+Congratulations! You are selected for our work-from-home opportunity.
+
+Earn Rs 60,000 per month.
+Please pay a refundable registration fee of Rs 1,500 through UPI.
+Offer expires today.
+~~~
+
+### Evidence chain
+
+~~~
+R02  Recruitment fee or deposit
+     "Please pay a refundable registration fee of Rs 1,500 through UPI."
+
+R06  Unusually high pay
+     "Earn Rs 60,000 per month."
+
+R07  Urgency
+     "Offer expires today."
+
+RISK_DETECTED
+~~~
+
+The UI then shows the evidence, score, uncertainty, and safer next steps instead of asking an LLM to make the decision.
+
+---
 
 ## Architecture
 
-\`\`\`
-Flutter client
-    |
-    v
-FastAPI backend
-    |
-    +--> text normalization + entity extraction
-    +--> deterministic R01-R12 evidence engine
-    |       +--> exact quotes
-    |       +--> weights / severity
-    |       +--> final outcome
-    |
-    +--> Azure AI Document Intelligence (optional OCR)
-    |
-    +--> Azure OpenAI (optional explanation only)
-\`\`\`
+~~~
+┌──────────────────────────────┐
+│        Flutter Client        │
+│   Web / mobile UI            │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│        FastAPI Backend       │
+│      /api/assess             │
+│      /api/assess-file        │
+│      /health                 │
+└──────────────┬───────────────┘
+               │
+       ┌───────┼───────────────┐
+       │       │               │
+       ▼       ▼               ▼
+  Text/Entity  Azure DI      Azure OpenAI
+   Extraction   OCR          Explanation
+       │       │               │
+       └───────┴───────┐       │
+                       ▼       │
+              Deterministic   │
+              R01–R12 Engine  │
+                       │       │
+                       └───┬───┘
+                           ▼
+                    Final Assessment
+~~~
 
-## Deterministic signals
+### Technology stack
 
-The engine covers recruitment fees, direct money requests, unusual sender domains, company-name/domain mismatch, unrealistic pay, urgency, personal-email/chat recruiting, suspicious links, sensitive-data requests, and mixed company domains. Automatic official job-listing lookup and automatic visual layout scoring are intentionally outside the decision boundary in this release.
+**Frontend**
+- Flutter
+- Material 3
+- http
+- file_picker
 
-## Backend
+**Backend**
+- Python
+- FastAPI
+- Uvicorn
+- Pydantic
 
-\`\`\`bash
+**Microsoft Azure**
+- Azure AI Document Intelligence
+- Azure OpenAI
+
+**Quality**
+- Python unittest
+- synthetic evaluation harness
+- GitHub Actions CI
+
+**Deployment**
+- Render
+- GitHub
+
+---
+
+## Repository structure
+
+~~~
+OfferGuard/
+├── backend/
+│   ├── analysis/
+│   │   ├── assess.py
+│   │   ├── azure_explain.py
+│   │   └── signals.py
+│   ├── api/
+│   │   └── server.py
+│   ├── extraction/
+│   │   ├── azure_document.py
+│   │   └── text.py
+│   ├── models/
+│   │   └── schema.py
+│   ├── verification/
+│   │   └── domains.py
+│   ├── evaluate.py
+│   └── main.py
+│
+├── flutter_app/
+│   ├── lib/
+│   │   └── main.dart
+│   ├── test/
+│   ├── web/
+│   └── pubspec.yaml
+│
+├── data/
+│   └── evaluation/
+│       └── synthetic_examples.json
+│
+├── tests/
+│   ├── test_engine.py
+│   └── test_dataset.py
+│
+├── .github/workflows/
+│   ├── ci.yml
+│   └── flutter-pages.yml
+│
+├── Dockerfile
+├── render.yaml
+├── requirements.txt
+├── SECURITY.md
+└── README.md
+~~~
+
+---
+
+## Run locally
+
+### 1. Clone
+
+~~~
+git clone https://github.com/tejeshdimmiti5-crypto/OfferGuard.git
+cd OfferGuard
+~~~
+
+### 2. Backend
+
+Create a virtual environment:
+
+~~~
 python -m venv .venv
-# Windows: .venv\\\\Scripts\\\\activate
-# macOS/Linux: source .venv/bin/activate
+~~~
+
+Windows:
+
+~~~
+.venv\Scripts\activate
+~~~
+
+macOS / Linux:
+
+~~~
+source .venv/bin/activate
+~~~
+
+Install dependencies:
+
+~~~
 pip install -r requirements.txt
+~~~
+
+Start the API:
+
+~~~
 uvicorn backend.main:app --reload --port 8000
-\`\`\`
+~~~
 
-Health: \`http://localhost:8000/health\`
+Health endpoint:
 
-Text assessment: \`POST /api/assess\`
+~~~
+http://localhost:8000/health
+~~~
 
-\`\`\`json
+### 3. Flutter
+
+~~~
+cd flutter_app
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://localhost:8000
+~~~
+
+For an Android emulator:
+
+~~~
+API_BASE_URL=http://10.0.2.2:8000
+~~~
+
+For Flutter web:
+
+~~~
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000
+~~~
+
+---
+
+## API
+
+### Health
+
+~~~
+GET /health
+~~~
+
+Example:
+
+~~~json
+{
+  "status": "ok",
+  "document_intelligence": false,
+  "azure_openai": false
+}
+~~~
+
+### Text assessment
+
+~~~
+POST /api/assess
+Content-Type: application/json
+~~~
+
+Example:
+
+~~~json
 {
   "text": "Pay Rs 999 registration fee through UPI.",
   "language": "en",
   "official_listing_verified": null,
-  "explain": true
+  "explain": false
 }
-\`\`\`
+~~~
 
-File assessment: \`POST /api/assess-file\` as multipart form-data. Files are capped at 10 MB and their file signatures are checked before OCR.
+The response contains the deterministic outcome, risk level, score, evidence, extracted facts, uncertainty, actions, and disclaimer.
 
-## Flutter frontend
+### File assessment
 
-The frontend source is in \`flutter_app/\`. The project uses \`http\` 1.6.0 and \`file_picker\` 13.1.0.
+~~~
+POST /api/assess-file
+Content-Type: multipart/form-data
+~~~
 
-Generate the platform scaffolding once with the Flutter SDK:
+Accepted document types:
+- PDF
+- PNG
+- JPEG
 
-\`\`\`bash
-cd flutter_app
-flutter create --platforms=android,ios,web .
-flutter pub get
-flutter run --dart-define=API_BASE_URL=http://localhost:8000
-\`\`\`
+Maximum file size: **10 MB**
 
-For an Android emulator use \`http://10.0.2.2:8000\` as the API base URL.
+Document extraction requires Azure AI Document Intelligence configuration.
+
+---
 
 ## Azure configuration
 
-### Document Intelligence
+### Azure AI Document Intelligence
 
-Set \`AZURE_DOCINTEL_ENDPOINT\` and \`AZURE_DOCINTEL_KEY\`. The backend uses the GA \`2024-11-30\` Document Intelligence REST API and \`prebuilt-read\`, posting an analyze request and polling the returned \`Operation-Location\`.
+Set:
+
+~~~text
+AZURE_DOCINTEL_ENDPOINT=
+AZURE_DOCINTEL_KEY=
+AZURE_DOCINTEL_API_VERSION=2024-11-30
+~~~
+
+The current implementation uses the <code>prebuilt-read</code> model and polls the returned <code>Operation-Location</code>.
 
 ### Azure OpenAI
 
-Set \`AZURE_OPENAI_ENDPOINT\`, \`AZURE_OPENAI_API_KEY\`, and \`AZURE_OPENAI_DEPLOYMENT\`. The explanation layer uses the Azure OpenAI v1 endpoint through the standard OpenAI Python client and never receives authority over the deterministic outcome.
+Set:
 
-## Tests and evaluation
+~~~text
+AZURE_OPENAI_ENDPOINT=
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_DEPLOYMENT=
+~~~
 
-\`\`\`bash
+Azure OpenAI is optional.
+
+When enabled, it is used only for evidence explanation. It must not:
+- create new factual evidence
+- override the deterministic outcome
+- declare a company or person fraudulent
+- replace the uncertainty produced by the rules engine
+
+---
+
+## Testing
+
+Run the backend unit tests:
+
+~~~
 python -m unittest discover -s tests
+~~~
+
+Run the synthetic evaluation:
+
+~~~
 python backend/evaluate.py
-\`\`\`
+~~~
 
-The shipped evaluation set is synthetic and is not a real-world accuracy claim. The current local synthetic harness reports 20 scored examples, 0 false positives, and 80% recall for the deterministic risk flagger.
+The evaluation dataset in data/evaluation/synthetic_examples.json is **synthetic**. Its results are a regression signal for the implemented rules, **not a real-world accuracy benchmark**.
 
-## Security boundary
+The current dataset contains 21 examples, with 20 counted by the binary risk evaluation because the explicit uncertain example is excluded from that calculation.
 
-Do not commit API keys, real recruitment records, identity documents, passwords, OTPs, or bank information. The backend does not log submitted content and applies file type/signature checks, size limits, rate limiting, and deterministic decision boundaries.
+---
 
-## Disclaimer
+## What OfferGuard does not claim
 
-OfferGuard is an assistive verification tool. It cannot guarantee that an offer is genuine or fraudulent. Independently verify employers and roles through official channels before paying money or sharing sensitive information.
+OfferGuard intentionally does **not** claim to:
+
+- prove that a company is fraudulent
+- prove that an offer is genuine from text alone
+- automatically authenticate an employer's external careers website
+- replace human verification
+- replace legal, financial, or security advice
+- provide a real-world fraud-detection accuracy percentage from the synthetic dataset
+
+This boundary is part of the product design.
+
+---
+
+## Security and privacy
+
+Never commit:
+
+- Azure API keys
+- passwords
+- OTPs
+- PINs
+- bank information
+- identity documents
+- real recruitment records containing unnecessary personal data
+
+The application is designed so the backend does not log the submitted recruitment content in its application logging path.
+
+Additional controls include:
+- file-type validation
+- file-signature validation
+- request size limits
+- rate limiting
+- deterministic decision boundaries
+- controlled failure messages
+
+See [SECURITY.md](SECURITY.md) for the project security guidance.
+
+---
+
+## Deployment
+
+The project is structured for deployment as:
+
+~~~
+Flutter Web
+     │
+     ▼
+Render Static Site
+     │
+     ▼
+Render FastAPI Service
+     │
+     ├── Azure AI Document Intelligence
+     └── Azure OpenAI
+~~~
+
+The repository also contains:
+- render.yaml
+- Render deployment configuration
+- GitHub Actions CI
+- Flutter web deployment workflow
+
+The public demo URL can change as deployment infrastructure changes. Check the repository's deployment configuration for the current deployment target.
+
+---
+
+## Design decisions
+
+### 1. Deterministic decision boundary
+
+The most important decision in OfferGuard is not the choice of model. It is **where the model is not allowed to decide**.
+
+The final state is produced by deterministic rules so the same input produces the same result.
+
+### 2. Exact evidence
+
+A signal without a source is difficult to audit.
+
+Every fired signal therefore carries the exact text fragment that triggered it.
+
+### 3. Visible uncertainty
+
+"Could not verify" is a first-class result.
+
+This prevents the system from turning missing evidence into false confidence.
+
+### 4. Safe assistance rather than autonomous accusation
+
+OfferGuard is designed to help a candidate slow down and verify an offer—not to make unsupported accusations about people or companies.
+
+---
+
+## Project status
+
+Current scope is intentionally focused on a reliable MVP:
+
+- ✅ deterministic risk engine
+- ✅ explainable evidence chain
+- ✅ PDF / PNG / JPEG extraction path
+- ✅ Azure AI Document Intelligence integration
+- ✅ optional Azure OpenAI explanation
+- ✅ English / Telugu explanation support
+- ✅ security and input hardening
+- ✅ synthetic evaluation harness
+- ✅ Flutter client
+- ✅ Render deployment configuration
+- ✅ CI configuration
+
+Automatic external job-listing verification and automatic visual offer-letter authenticity analysis are intentionally outside the current decision boundary.
+
+---
+
+## Responsible-use disclaimer
+
+OfferGuard is an **assistive verification tool**.
+
+A VERIFIED result does not guarantee that an offer is genuine, and a RISK_DETECTED result does not by itself establish fraud. Always verify the employer, role, contact channel, and payment instructions through independently sourced official channels.
+
+**Never pay money to obtain a job or internship. Never share passwords, OTPs, PINs, or unnecessary financial information with a recruiter.**
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
+
+---
+
+## Repository
+
+**GitHub:** https://github.com/tejeshdimmiti5-crypto/OfferGuard
