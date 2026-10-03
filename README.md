@@ -12,6 +12,16 @@ It combines a **deterministic risk engine** with **Azure AI Document Intelligenc
 
 ---
 
+## Live demo
+
+**Web app:** https://offerguard-web.onrender.com
+
+**API health:** https://offerguard-api-joh9.onrender.com/health
+
+**Source:** https://github.com/tejeshdimmiti5-crypto/OfferGuard
+
+> The public demo uses the Render deployment configured for this repository. Azure services remain optional until their credentials are configured.
+
 ## Why OfferGuard?
 
 Recruitment scams often rely on urgency, payment requests, impersonation, suspicious domains, unrealistic compensation, and requests for sensitive information.
@@ -539,12 +549,15 @@ Render FastAPI Service
 ~~~
 
 The repository also contains:
-- render.yaml
+- `render.yaml`
 - Render deployment configuration
 - GitHub Actions CI
 - Flutter web deployment workflow
 
-The public demo URL can change as deployment infrastructure changes. Check the repository's deployment configuration for the current deployment target.
+The current public demo runs on Render:
+
+- Web: https://offerguard-web.onrender.com
+- API: https://offerguard-api-joh9.onrender.com
 
 ---
 
