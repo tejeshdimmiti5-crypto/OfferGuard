@@ -2,7 +2,7 @@ import os
 import time
 from collections import defaultdict, deque
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -43,9 +43,12 @@ def health():
         azure_openai=bool(os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_DEPLOYMENT")),
     )
 
-def check_rate_limit(client_key: str):
+def client_key(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+def check_rate_limit(key: str):
     now = time.time()
-    q = visits[client_key]
+    q = visits[key]
     while q and now - q[0] > RATE_WINDOW:
         q.popleft()
     if len(q) >= RATE_LIMIT:
@@ -66,21 +69,22 @@ def validate_file(data: bytes, content_type: str):
         raise HTTPException(415, "The file signature does not match its declared content type.")
 
 @app.post("/api/assess")
-def assess_text(request: AssessRequest):
-    check_rate_limit("json")
-    if not request.text.strip():
+def assess_text(payload: AssessRequest, request: Request):
+    check_rate_limit(client_key(request))
+    if not payload.text.strip():
         raise HTTPException(400, "Paste the recruitment message or offer text first.")
-    result = assess(request.text, request.official_listing_verified)
-    return add_ai_explanation(result, request.language, request.explain)
+    result = assess(payload.text, payload.official_listing_verified)
+    return add_ai_explanation(result, payload.language, payload.explain)
 
 @app.post("/api/assess-file")
 def assess_file(
+    request: Request,
     file: UploadFile = File(...),
     language: str = Form("en"),
     official_listing_verified: bool | None = Form(None),
     explain: bool = Form(False),
 ):
-    check_rate_limit("multipart")
+    check_rate_limit(client_key(request))
     if language not in {"en", "te"}:
         raise HTTPException(400, "language must be 'en' or 'te'.")
     content_type = file.content_type or "application/octet-stream"
