@@ -1,48 +1,105 @@
 # OfferGuard
 
-OfferGuard is an explainable job-offer verification and risk-assessment system designed to help people evaluate suspicious recruitment messages, emails, screenshots, and offer documents.
+OfferGuard is an explainable job-offer risk assessment system. It accepts recruiter text and PDF/PNG/JPEG documents, uses Azure AI Document Intelligence for OCR when configured, applies deterministic evidence rules, and can use Azure OpenAI only to explain evidence in English or Telugu.
 
-## Core design
+## Decision boundary
 
-OfferGuard separates deterministic evidence and risk scoring from AI-generated interpretation.
+**AI never decides the outcome.** The deterministic rules engine owns the outcome. Every detected signal contains an exact quote from the supplied content. The absence of warning signs is never treated as proof that an offer is genuine.
 
-- Evidence is extracted from the supplied material.
-- Risk signals are deterministic and tied to exact source text.
-- The final outcome is produced by the rules/evidence engine, not by an LLM.
-- Uncertainty is explicitly surfaced as **Unconfirmed** rather than silently treated as verified.
-- Azure AI Document Intelligence can be used for document/OCR extraction.
-- Azure OpenAI can provide multilingual interpretation/summaries, but its output does not control the final decision.
+The **Verified** state requires a user-supplied independent confirmation that the exact role was found on the employer's official careers site, and only appears when deterministic risk is low. OfferGuard does not perform or claim that external lookup.
 
-## Visible outcomes
+## Outcomes
 
-- **Verified**
-- **Unconfirmed**
-- **Risk detected**
+- `VERIFIED` — low deterministic risk + user-supplied official-listing verification.
+- `UNCONFIRMED` — insufficient evidence to verify the offer.
+- `RISK_DETECTED` — deterministic evidence crossed the risk threshold.
 
-> These outcomes are informational. OfferGuard does not guarantee that a job offer is legitimate or fraudulent.
+## Architecture
 
-## Safety and security
+```
+Flutter client
+    |
+    v
+FastAPI backend
+    |
+    +--> text normalization + entity extraction
+    +--> deterministic R01-R12 evidence engine
+    |       +--> exact quotes
+    |       +--> weights / severity
+    |       +--> final outcome
+    |
+    +--> Azure AI Document Intelligence (optional OCR)
+    |
+    +--> Azure OpenAI (optional explanation only)
+```
 
-The project is designed around:
+## Deterministic signals
 
-- evidence-first reasoning
-- exact quoted evidence
-- clear "could not verify" states
-- ownership checks for protected resources
-- input and file-size validation
-- rate limiting
-- prompt-injection boundaries for untrusted document text
-- separation between user memory and document evidence
-- graceful AI-provider failure handling
+The engine covers recruitment fees, direct money requests, unusual sender domains, company-name/domain mismatch, unrealistic pay, urgency, personal-email/chat recruiting, suspicious links, sensitive-data requests, and mixed company domains. Automatic official job-listing lookup and automatic visual layout scoring are intentionally outside the decision boundary in this release.
 
-## Testing
+## Backend
 
-The repository is intended to include unit, security, adversarial, and evaluation tests. Reported project validation included 49 passing tests and a synthetic evaluation suite with 20/20 outcome agreement in the locked MVP validation run.
+```bash
+python -m venv .venv
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn backend.main:app --reload --port 8000
+```
 
-## AI boundary
+Health: `http://localhost:8000/health`
 
-AI may help interpret or summarize extracted material, including multilingual/Telugu/Telugu-Hinglish content. It must not override the deterministic decision boundary.
+Text assessment: `POST /api/assess`
+
+```json
+{
+  "text": "Pay Rs 999 registration fee through UPI.",
+  "language": "en",
+  "official_listing_verified": null,
+  "explain": true
+}
+```
+
+File assessment: `POST /api/assess-file` as multipart form-data. Files are capped at 10 MB and their file signatures are checked before OCR.
+
+## Flutter frontend
+
+The frontend source is in `flutter_app/`. It uses current `http` 1.6.0 and `file_picker` 13.1.0 packages. citeturn301839search0turn301839search5
+
+Because Flutter's platform templates evolve with the installed SDK, generate the platform scaffolding once:
+
+```bash
+cd flutter_app
+flutter create --platforms=android,ios,web .
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://localhost:8000
+```
+
+For an Android emulator use `http://10.0.2.2:8000` as the API base URL.
+
+## Azure configuration
+
+### Document Intelligence
+
+Set `AZURE_DOCINTEL_ENDPOINT` and `AZURE_DOCINTEL_KEY`. The backend uses the GA `2024-11-30` Document Intelligence REST API and `prebuilt-read`; Microsoft documents the analyze operation and polling through `Operation-Location`. citeturn572663search0turn572663search4
+
+### Azure OpenAI
+
+Set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_DEPLOYMENT`. The current Azure OpenAI v1 surface supports the standard OpenAI Python client with a base URL ending in `/openai/v1/`; dated API-version parameters are not required for v1 inference. citeturn855684search0turn855684search3
+
+## Tests and evaluation
+
+```bash
+python -m unittest discover -s tests
+python backend/evaluate.py
+```
+
+The shipped evaluation set is synthetic and is not a real-world accuracy claim. The current synthetic harness reports 20 scored examples, 0 false positives, and 80% recall for the deterministic risk flagger.
+
+## Security boundary
+
+Do not commit API keys, real recruitment records, identity documents, passwords, OTPs, or bank information. The backend avoids logging submitted content and never feeds raw untrusted text directly into the model as a source of decision authority.
 
 ## Disclaimer
 
-OfferGuard is an assistive verification tool, not a substitute for contacting the employer through independently verified official channels. Always avoid sending money or sensitive identity documents until the relevant facts have been independently confirmed.
+OfferGuard is an assistive verification tool. It cannot guarantee that an offer is genuine or fraudulent. Independently verify employers and roles through official channels before paying money or sharing sensitive information.
