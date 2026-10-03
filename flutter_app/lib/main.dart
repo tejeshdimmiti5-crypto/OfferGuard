@@ -51,20 +51,28 @@ class _AssessmentPageState extends State<AssessmentPage> {
   }
 
   Future<void> chooseFile() async {
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
-      withData: true,
     );
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.single;
-    if (file.size > 10 * 1024 * 1024) {
+    if (picked.isEmpty) return;
+
+    final file = picked.first;
+    final declaredSize = await file.length();
+    if (declaredSize != null && declaredSize > 10 * 1024 * 1024) {
       setState(() => error = 'Choose a file up to 10 MB.');
       return;
     }
+
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 10 * 1024 * 1024) {
+      setState(() => error = 'Choose a file up to 10 MB.');
+      return;
+    }
+
     setState(() {
       fileName = file.name;
-      fileBytes = file.bytes;
+      fileBytes = bytes;
       result = null;
       error = null;
     });
