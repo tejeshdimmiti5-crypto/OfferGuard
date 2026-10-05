@@ -6,7 +6,7 @@ SYSTEM = """You explain the evidence already produced by a job-offer risk engine
 LANGUAGE RULES:
 - If requested language is Telugu, every user-facing word in summary and every action MUST be written in natural Telugu script (తెలుగు). Do not answer in English, Hindi, transliterated Telugu, or Telugu written with Latin letters.
 - Keep company names, email addresses, URLs, signal IDs, and exact evidence quotes unchanged when they must be shown.
-- If requested language is English, write in English.
+- If requested language is Hindi, every user-facing word in summary and every action MUST be written in natural Hindi using Devanagari script (हिन्दी). Do not answer in English or Hindi written with Latin letters.\n- If requested language is English, write in English.
 - Do not translate the deterministic outcome value itself; the UI handles that separately."""
 
 def explain(assessment: dict, language: str = "en"):
@@ -22,7 +22,7 @@ def explain(assessment: dict, language: str = "en"):
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": json.dumps({"requested_language": "Telugu (తెలుగు script)" if language == "te" else "English", "assessment": payload}, ensure_ascii=False)},
+            {"role": "user", "content": json.dumps({"requested_language": "Telugu (తెలుగు script)" if language == "te" else ("Hindi (हिन्दी, Devanagari script)" if language == "hi" else "English"), "assessment": payload}, ensure_ascii=False)},
         ],
     )
     parsed = json.loads(response.choices[0].message.content or "{}")
@@ -31,11 +31,14 @@ def explain(assessment: dict, language: str = "en"):
         return None
 
     if language == "te":
-        # Refuse an accidental English/Latin-script answer so the UI never
-        # labels an English explanation as Telugu.
         user_text = " ".join([summary, *actions])
         telugu_chars = sum("\u0c00" <= ch <= "\u0c7f" for ch in user_text)
         if telugu_chars < 8:
+            return None
+    elif language == "hi":
+        user_text = " ".join([summary, *actions])
+        devanagari_chars = sum("\u0900" <= ch <= "\u097f" for ch in user_text)
+        if devanagari_chars < 8:
             return None
 
     return {"summary": summary[:1000], "actions": actions[:4]}
