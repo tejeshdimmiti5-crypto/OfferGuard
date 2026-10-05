@@ -26,7 +26,7 @@ app.add_middleware(
 
 class AssessRequest(BaseModel):
     text: str = Field(default="", max_length=MAX_TEXT)
-    language: str = Field(default="en", pattern="^(en|te)$")
+    language: str = Field(default="en", pattern="^(en|te|hi)$")
     official_listing_verified: bool | None = None
     explain: bool = False
 
@@ -96,7 +96,7 @@ def assess_file(
     explain: bool = Form(False),
 ):
     check_rate_limit(client_key(request))
-    if language not in {"en", "te"}:
+    if language not in {"en", "te", "hi"}:
         raise HTTPException(400, "language must be 'en' or 'te'.")
     content_type = file.content_type or "application/octet-stream"
     data = file.file.read(MAX_FILE + 1)
@@ -115,6 +115,40 @@ def assess_file(
     result["extracted_text"] = text
     return add_ai_explanation(result, language, explain)
 
+def _telugu_fallback(result):
+    outcome = result.get("outcome")
+    risk = result.get("risk")
+    if outcome == "RISK_DETECTED":
+        summary = "ఈ ఉద్యోగ ఆఫర్‌లో ప్రమాదానికి సంబంధించిన కొన్ని సంకేతాలు గుర్తించబడ్డాయి. దిగువ చూపిన ఆధారాలను పరిశీలించి, కంపెనీ అధికారిక వెబ్‌సైట్ ద్వారా స్వతంత్రంగా ధృవీకరించండి."
+    elif outcome == "VERIFIED":
+        summary = "అందించిన సమాచారంలో తక్కువ ప్రమాదం కనిపించింది మరియు అధికారిక ఉద్యోగ ధృవీకరణ అందించబడింది. అయినప్పటికీ, తుది నిర్ణయం తీసుకునే ముందు అధికారిక ఛానల్ ద్వారా ధృవీకరించండి."
+    else:
+        summary = "ఈ ఆఫర్‌ను పూర్తిగా ధృవీకరించడానికి సరిపడిన స్వతంత్ర ఆధారాలు లేవు. కంపెనీ అధికారిక కెరీర్ వెబ్‌సైట్ ద్వారా ఉద్యోగాన్ని ధృవీకరించండి."
+    actions = [
+        "ఉద్యోగం కోసం ఎటువంటి డబ్బు చెల్లించవద్దు.",
+        "కంపెనీ అధికారిక వెబ్‌సైట్‌లో అదే ఉద్యోగాన్ని తనిఖీ చేయండి.",
+        "వ్యక్తిగత లేదా బ్యాంకింగ్ సమాచారాన్ని పంపించే ముందు అధికారిక ఛానల్‌ను నిర్ధారించండి.",
+        "ప్రస్తుత ప్రమాద స్థాయి: " + str(risk or "తెలియదు") + ".",
+    ]
+    return {"summary": summary, "actions": actions}
+
+def _hindi_fallback(result):
+    outcome = result.get("outcome")
+    risk = result.get("risk")
+    if outcome == "RISK_DETECTED":
+        summary = "इस नौकरी के ऑफर में जोखिम से जुड़े कुछ संकेत मिले हैं। नीचे दिए गए प्रमाण देखें और कंपनी की आधिकारिक वेबसाइट के माध्यम से स्वतंत्र रूप से सत्यापित करें।"
+    elif outcome == "VERIFIED":
+        summary = "दिए गए विवरण में कम जोखिम दिखाई देता है और आधिकारिक नौकरी सत्यापन उपलब्ध है। फिर भी अंतिम निर्णय से पहले आधिकारिक माध्यम से पुष्टि करें।"
+    else:
+        summary = "इस ऑफर को पूरी तरह सत्यापित करने के लिए पर्याप्त स्वतंत्र प्रमाण उपलब्ध नहीं हैं। कंपनी की आधिकारिक करियर वेबसाइट पर इसी नौकरी की पुष्टि करें।"
+    actions = [
+        "नौकरी पाने के लिए कभी भी पैसे का भुगतान न करें।",
+        "कंपनी की आधिकारिक वेबसाइट पर इसी नौकरी की जांच करें।",
+        "व्यक्तिगत या बैंकिंग जानकारी साझा करने से पहले आधिकारिक चैनल की पुष्टि करें।",
+        "वर्तमान जोखिम स्तर: " + str(risk or "अज्ञात") + "।",
+    ]
+    return {"summary": summary, "actions": actions}
+
 def add_ai_explanation(result, language, explain_requested):
     if explain_requested and os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_DEPLOYMENT"):
         try:
@@ -124,4 +158,9 @@ def add_ai_explanation(result, language, explain_requested):
             result["ai_explanation"] = None
     else:
         result["ai_explanation"] = None
+
+    if language == "te" and result["ai_explanation"] is None:
+        result["ai_explanation"] = _telugu_fallback(result)
+    elif language == "hi" and result["ai_explanation"] is None:
+        result["ai_explanation"] = _hindi_fallback(result)
     return result

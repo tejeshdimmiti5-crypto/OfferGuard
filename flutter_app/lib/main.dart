@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
 
@@ -201,6 +202,10 @@ class _AssessmentPageState extends State<AssessmentPage> {
                           value: 'te',
                           child: Text('తెలుగు'),
                         ),
+                        DropdownMenuItem(
+                          value: 'hi',
+                          child: Text('हिन्दी'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value != null) setState(() => language = value);
@@ -209,6 +214,41 @@ class _AssessmentPageState extends State<AssessmentPage> {
                   ],
                 ),
                 const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF10243A), Color(0xFF0A1727)],
+                    ),
+                    border: Border.all(color: Color(0x2267E8F9)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Color(0xFF67E8F9), size: 28),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Check. Understand. Compare.',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                            SizedBox(height: 5),
+                            Text(
+                              'Get evidence for this offer, then explore comparable employers through their official career sites.',
+                              style: TextStyle(color: Color(0xFFAFC2D8), height: 1.35),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -490,6 +530,10 @@ class ResultPanel extends StatelessWidget {
               ),
               _FactsSummary(facts: result!['facts'] as Map<String, dynamic>),
             ],
+            if (result!['similar_companies'] is List && (result!['similar_companies'] as List).isNotEmpty) ...[
+              const SizedBox(height: 16),
+              SimilarCompanies(items: (result!['similar_companies'] as List).cast<Map<String, dynamic>>()),
+            ],
             const SizedBox(height: 14),
             const Text(
               'What could not be verified',
@@ -590,6 +634,101 @@ class _FactsSummary extends StatelessWidget {
             const Text(
               'No email or link entities were extracted.',
               style: TextStyle(color: Color(0xFFAFC2D8)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class SimilarCompanies extends StatelessWidget {
+  const SimilarCompanies({required this.items, super.key});
+  final List<Map<String, dynamic>> items;
+
+  Future<void> openCareers(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1B2B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x1967E8F9)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.work_outline, color: Color(0xFF67E8F9), size: 19),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Comparable employers',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Explore similar employers for this role. These are official career sites, not a live vacancy guarantee.',
+            style: TextStyle(color: Color(0xFF7F95AC), fontSize: 12, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          for (final item in items.take(5))
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFF081522),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0x1467E8F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      (item['company'] ?? '?').toString().substring(0, 1),
+                      style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF67E8F9)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (item['company'] ?? 'Employer').toString(),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          (item['match'] ?? 'Comparable employer').toString(),
+                          style: const TextStyle(color: Color(0xFF7F95AC), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => openCareers((item['careers_url'] ?? '').toString()),
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('Careers'),
+                  ),
+                ],
+              ),
             ),
         ],
       ),

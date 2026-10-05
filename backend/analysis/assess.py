@@ -1,5 +1,6 @@
 from analysis.signals import detect, INFO
 from extraction.text import normalize, entities
+from analysis.recommendations import recommend_companies
 
 DISCLAIMER = "These are automated risk signals, not a verdict about any company or person. Always verify through official channels."
 
@@ -37,4 +38,5 @@ def assess(text: str, official_listing_verified: bool | None = None):
         "actions": actions,
         "uncertainty": uncertainty,
         "disclaimer": DISCLAIMER,
+        "similar_companies": recommend_companies(text),
     }
