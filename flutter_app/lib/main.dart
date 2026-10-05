@@ -202,6 +202,10 @@ class _AssessmentPageState extends State<AssessmentPage> {
                           value: 'te',
                           child: Text('తెలుగు'),
                         ),
+                        DropdownMenuItem(
+                          value: 'hi',
+                          child: Text('हिन्दी'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value != null) setState(() => language = value);
