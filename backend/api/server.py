@@ -115,6 +115,23 @@ def assess_file(
     result["extracted_text"] = text
     return add_ai_explanation(result, language, explain)
 
+def _telugu_fallback(result):
+    outcome = result.get("outcome")
+    risk = result.get("risk")
+    if outcome == "RISK_DETECTED":
+        summary = "ఈ ఉద్యోగ ఆఫర్‌లో ప్రమాదానికి సంబంధించిన కొన్ని సంకేతాలు గుర్తించబడ్డాయి. దిగువ చూపిన ఆధారాలను పరిశీలించి, కంపెనీ అధికారిక వెబ్‌సైట్ ద్వారా స్వతంత్రంగా ధృవీకరించండి."
+    elif outcome == "VERIFIED":
+        summary = "అందించిన సమాచారంలో తక్కువ ప్రమాదం కనిపించింది మరియు అధికారిక ఉద్యోగ ధృవీకరణ అందించబడింది. అయినప్పటికీ, తుది నిర్ణయం తీసుకునే ముందు అధికారిక ఛానల్ ద్వారా ధృవీకరించండి."
+    else:
+        summary = "ఈ ఆఫర్‌ను పూర్తిగా ధృవీకరించడానికి సరిపడిన స్వతంత్ర ఆధారాలు లేవు. కంపెనీ అధికారిక కెరీర్ వెబ్‌సైట్ ద్వారా ఉద్యోగాన్ని ధృవీకరించండి."
+    actions = [
+        "ఉద్యోగం కోసం ఎటువంటి డబ్బు చెల్లించవద్దు.",
+        "కంపెనీ అధికారిక వెబ్‌సైట్‌లో అదే ఉద్యోగాన్ని తనిఖీ చేయండి.",
+        "వ్యక్తిగత లేదా బ్యాంకింగ్ సమాచారాన్ని పంపించే ముందు అధికారిక ఛానల్‌ను నిర్ధారించండి.",
+        "ప్రస్తుత ప్రమాద స్థాయి: " + str(risk or "తెలియదు") + ".",
+    ]
+    return {"summary": summary, "actions": actions}
+
 def add_ai_explanation(result, language, explain_requested):
     if explain_requested and os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_DEPLOYMENT"):
         try:
@@ -124,4 +141,7 @@ def add_ai_explanation(result, language, explain_requested):
             result["ai_explanation"] = None
     else:
         result["ai_explanation"] = None
+
+    if language == "te" and result["ai_explanation"] is None:
+        result["ai_explanation"] = _telugu_fallback(result)
     return result
